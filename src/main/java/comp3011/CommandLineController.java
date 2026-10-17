@@ -25,6 +25,7 @@ import java.util.List;
  */
 public class CommandLineController {
     private final String[] args;
+    private final List<FrameProcessorOption> requestedProcessors = new ArrayList<>();
 
     private boolean helpRequested;
     private boolean audioRequested;
@@ -71,22 +72,41 @@ public class CommandLineController {
     public boolean shouldLaunchApplication() {
         return errorMessage == null && videoFile != null;
     }
+    
+    private void applyOption(String option) {
+        switch (option) {
+            case "-h", "--help" -> helpRequested = true;
+            case "-a", "--audio" -> audioRequested = true;
+            case "-x", "--maximise" -> maximiseRequested = true;
+            case "-1", "--monitor-1" -> setDisplayId(1);
+            case "-2", "--monitor-2" -> setDisplayId(2);
+            default -> {
+                FrameProcessorOption processor = FrameProcessorOption.fromOption(option);
+                if (processor != null) {
+                    requestedProcessors.add(processor);
+                } else {
+                    errorMessage = "Unknown option: " + option;
+                }
+            }
+        }
+    }
+
+    public List<FrameProcessor> createFrameProcessors() {
+        return requestedProcessors.stream()
+                .map(FrameProcessorOption::create)
+                .toList();
+    }
 
     private void parse() {
-        List<String> videoFiles = new ArrayList<>();
+    	List<String> videoFiles = new ArrayList<>();
         for (String arg : args) {
-            if ("-h".equals(arg) || "--help".equals(arg)) {
-                helpRequested = true;
-            } else if ("-a".equals(arg) || "--audio".equals(arg)) {
-                audioRequested = true;
-            } else if ("-x".equals(arg) || "--maximise".equals(arg)) {
-                maximiseRequested = true;
-            } else if ("-1".equals(arg) || "--monitor-1".equals(arg)) {
-                setDisplayId(1);
-            } else if ("-2".equals(arg) || "--monitor-2".equals(arg)) {
-                setDisplayId(2);
-            } else if (arg.startsWith("-")) {
-                errorMessage = "Unknown option: " + arg;
+            if (arg.startsWith("--")) {
+                applyOption(arg);
+            } else if (arg.startsWith("-") && arg.length() > 1) {
+                // Stacked short options such as -jfddn. Each letter is applied in turn.
+                for (char letter : arg.substring(1).toCharArray()) {
+                    applyOption("-" + letter);
+                }
             } else {
                 videoFiles.add(arg);
             }
