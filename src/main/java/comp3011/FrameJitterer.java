@@ -163,4 +163,8 @@ public class FrameJitterer extends FrameProcessor {
             destination.put(sourcePixels, sourceIndex, rowBytesToCopy);
         }
     }
+    
+    static void resetInstanceIndex() {
+        nextInstanceIndex = 0;
+    }
 }

@@ -254,4 +254,8 @@ public class FramePepperer extends FrameProcessor {
             return Math.max(0.35, scale);
         }
     }
+    
+    static void resetInstanceIndex() {
+        nextInstanceIndex = 0;
+    }
 }

@@ -199,4 +199,8 @@ public class FrameDuster extends FrameProcessor {
     private int clamp(int value, int min, int max) {
         return Math.max(min, Math.min(value, max));
     }
+    
+    static void resetInstanceIndex() {
+        nextInstanceIndex = 0;
+    }
 }

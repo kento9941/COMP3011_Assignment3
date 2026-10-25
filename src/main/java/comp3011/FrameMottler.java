@@ -414,4 +414,8 @@ public class FrameMottler extends FrameProcessor {
     private double clamp(double value, double min, double max) {
         return Math.max(min, Math.min(value, max));
     }
+    
+    static void resetInstanceIndex() {
+        nextInstanceIndex = 0;
+    }
 }

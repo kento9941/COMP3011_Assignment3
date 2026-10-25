@@ -35,6 +35,16 @@ public enum FrameProcessorOption {
     public String helpLine() {
         return String.format("  %s, %-19s%s", shortName, longName, description);
     }
+    
+    // Resets every per-class instance counter before building a new processor chain.
+    public static void resetInstanceCounters() {
+        FrameDuster.resetInstanceIndex();
+        FrameFlickerer.resetInstanceIndex();
+        FrameJitterer.resetInstanceIndex();
+        FrameMottler.resetInstanceIndex();
+        FramePepperer.resetInstanceIndex();
+        FrameScratcher.resetInstanceIndex();
+    }
 
     // Accepts either "-n" or "--number-frames". Returns null if there is no match.
     public static FrameProcessorOption fromOption(String option) {

@@ -170,6 +170,10 @@ public class FrameScratcher extends FrameProcessor {
             pixels.put(base + channel, byteValue);
         }
     }
+    
+    static void resetInstanceIndex() {
+        nextInstanceIndex = 0;
+    }
 
     private record Scratch(
             double startFrame,

@@ -92,6 +92,7 @@ public class CommandLineController {
     }
 
     public List<FrameProcessor> createFrameProcessors() {
+        FrameProcessorOption.resetInstanceCounters();
         return requestedProcessors.stream()
                 .map(FrameProcessorOption::create)
                 .toList();

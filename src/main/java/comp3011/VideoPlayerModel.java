@@ -65,11 +65,10 @@ public class VideoPlayerModel {
     private static final long AUDIO_LEAD_NS = 30_000_000L;
 
     // Leave a couple of cores for the decode thread, the JavaFX thread and the OS. Capped to bound memory use.
-    private static final int WORKER_COUNT = 1;
-    // Upper bound on frames that have been decoded but not yet shown.
+    private static final int WORKER_COUNT =
+            Math.min(8, Math.max(2, Runtime.getRuntime().availableProcessors() - 3));
     private static final int MAX_FRAMES_IN_FLIGHT = WORKER_COUNT + 8;
-    // Frames to have ready before the playback clock starts, so playback begins with slack.
-    private static final int PREBUFFER_FRAMES = WORKER_COUNT;
+    private static final int PREBUFFER_FRAMES = Math.min(WORKER_COUNT, 6);
 
     // One independent processor chain per worker. A chain is only ever used by its own worker thread.
     private final List<List<FrameProcessor>> workerProcessors = new ArrayList<>();
