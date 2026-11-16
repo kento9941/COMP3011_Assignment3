@@ -30,6 +30,10 @@ import javafx.scene.shape.Line;
 import javafx.scene.shape.Polygon;
 import javafx.scene.shape.SVGPath;
 import javafx.scene.shape.StrokeLineCap;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
+import javafx.scene.text.TextAlignment;
 
 /**
  * The view part of the video player model-view-controller architecture.
@@ -46,6 +50,8 @@ public class VideoPlayerView {
     private static final int ICON_SIZE = 28;
 
     private final ImageView imageView = new ImageView();
+    private final Canvas subtitleCanvas = new Canvas();
+    private String subtitleText = "";
     private final Label statusLabel = new Label("No video loaded");
     private final Label tooltipLabel = new Label();
     private final Pane tooltipLayer = new Pane();
@@ -57,12 +63,21 @@ public class VideoPlayerView {
     private final Button forwardFiveButton;
     private final Button stopButton;
     private final Button audioButton;
+    private final Button subtitleButton;
 
     public VideoPlayerView() {
         imageView.setPreserveRatio(true);
         imageView.setSmooth(false);
 
-        videoPane = new StackPane(imageView);
+        videoPane = new StackPane(imageView, subtitleCanvas);
+        subtitleCanvas.setId("subtitle-overlay");
+        subtitleCanvas.setManaged(false);
+        subtitleCanvas.setMouseTransparent(true);
+        subtitleCanvas.setVisible(false);
+        subtitleCanvas.widthProperty().bind(videoPane.widthProperty());
+        subtitleCanvas.heightProperty().bind(videoPane.heightProperty());
+        subtitleCanvas.widthProperty().addListener(_ -> drawSubtitle());
+        subtitleCanvas.heightProperty().addListener(_ -> drawSubtitle());
         videoPane.setStyle("-fx-background-color: black;");
         videoPane.setMinSize(0, 0);
         videoPane.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
@@ -75,6 +90,7 @@ public class VideoPlayerView {
         forwardFiveButton = iconButton(createLoopIcon(true, "5"));
         stopButton = iconButton(createStopIcon());
         audioButton = iconButton(createAudioIcon(false));
+        subtitleButton = iconButton(createSubtitleIcon(false));
         setPlaybackControlsDisabled(true);
 
         HBox controls = new HBox(
@@ -85,6 +101,7 @@ public class VideoPlayerView {
                 forwardFiveButton,
                 stopButton,
                 audioButton,
+                subtitleButton,
                 statusLabel);
 
         controls.setPadding(new Insets(10));
@@ -127,12 +144,71 @@ public class VideoPlayerView {
         return audioButton;
     }
 
+    public Button getSubtitleButton() {
+        return subtitleButton;
+    }
+
+    public void showSubtitlesEnabled(boolean enabled) {
+        subtitleButton.setGraphic(createSubtitleIcon(enabled));
+        subtitleButton.setAccessibleText(enabled ? "Subtitles on" : "Subtitles off");
+    }
+
     public void setStatus(String status) {
         statusLabel.setText(status);
     }
 
     public void setImage(Image image) {
         imageView.setImage(image);
+        drawSubtitle();
+    }
+
+    public void setSubtitleText(String text) {
+        if (!subtitleText.equals(text)) {
+            subtitleText = text;
+            drawSubtitle();
+        }
+    }
+
+    private void drawSubtitle() {
+        GraphicsContext gc = subtitleCanvas.getGraphicsContext2D();
+        double width = subtitleCanvas.getWidth();
+        double height = subtitleCanvas.getHeight();
+        gc.clearRect(0, 0, width, height);
+        Image image = imageView.getImage();
+        boolean visible = image != null && !subtitleText.isEmpty() && width > 0 && height > 0;
+        subtitleCanvas.setVisible(visible);
+        if (!visible) return;
+
+        // Fit within the picture itself, excluding any letterboxing.
+        double scale = Math.min(width / image.getWidth(), height / image.getHeight());
+        double pictureWidth = image.getWidth() * scale;
+        double pictureHeight = image.getHeight() * scale;
+        double pictureBottom = (height + pictureHeight) / 2;
+        String[] lines = subtitleText.split("\n");
+        double fontSize = Math.min(36, pictureHeight * 0.055);
+        Font font = Font.font("SansSerif", FontWeight.BOLD, fontSize);
+        double widest = 0;
+        for (String line : lines) {
+            Text measurement = new Text(line);
+            measurement.setFont(font);
+            widest = Math.max(widest, measurement.getLayoutBounds().getWidth());
+        }
+        if (widest > pictureWidth * 0.9) fontSize *= pictureWidth * 0.9 / widest;
+        font = Font.font("SansSerif", FontWeight.BOLD, fontSize);
+        gc.setFont(font);
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setLineJoin(javafx.scene.shape.StrokeLineJoin.ROUND);
+        gc.setLineWidth(Math.max(1, fontSize * 0.12));
+        gc.setStroke(Color.BLACK);
+        gc.setFill(Color.WHITE);
+        double lineHeight = fontSize * 1.3;
+        double baseline = pictureBottom - pictureHeight * 0.06 - fontSize * 0.25
+                - (lines.length - 1) * lineHeight;
+        for (String line : lines) {
+            gc.strokeText(line, width / 2, baseline);
+            gc.fillText(line, width / 2, baseline);
+            baseline += lineHeight;
+        }
     }
 
     public void setVideoDisplaySize(double width, double height) {
@@ -158,6 +234,7 @@ public class VideoPlayerView {
         forwardFiveButton.setDisable(disabled);
         stopButton.setDisable(disabled);
         audioButton.setDisable(disabled);
+        subtitleButton.setDisable(disabled);
     }
 
     // There are a bunch of tooltip handling methods starting from here. We want to use tooltips so that people with
@@ -169,6 +246,7 @@ public class VideoPlayerView {
         setButtonTooltip(forwardFiveButton, "[RIGHT]");
         setButtonTooltip(stopButton, "[ESC]");
         setButtonTooltip(audioButton, "[A]");
+        setButtonTooltip(subtitleButton, "Subtitles [S]");
     }
 
     private void setButtonTooltip(Button button, String text) {
@@ -305,6 +383,28 @@ public class VideoPlayerView {
         GraphicsContext gc = canvas.getGraphicsContext2D();
         gc.setFill(Color.BLACK);
         gc.fillRect(9, 9, 11, 11);
+        return canvas;
+    }
+
+    // Kind of speaker looking thing ...
+    private Canvas createSubtitleIcon(boolean enabled) {
+        Canvas canvas = new Canvas(ICON_SIZE, ICON_SIZE);
+        GraphicsContext gc = canvas.getGraphicsContext2D();
+        gc.setStroke(Color.BLACK);
+        gc.setLineWidth(2);
+        gc.strokeRoundRect(3, 5, 22, 18, 4, 4);
+        gc.strokeLine(7, 12, 12, 12);
+        gc.strokeLine(15, 12, 21, 12);
+        gc.strokeLine(7, 17, 16, 17);
+        gc.strokeLine(19, 17, 21, 17);
+        if (!enabled) {
+            gc.setStroke(Color.WHITE);
+            gc.setLineWidth(5);
+            gc.strokeLine(4, 24, 24, 4);
+            gc.setStroke(Color.BLACK);
+            gc.setLineWidth(2);
+            gc.strokeLine(4, 24, 24, 4);
+        }
         return canvas;
     }
 

@@ -29,6 +29,7 @@ public class CommandLineController {
 
     private boolean helpRequested;
     private boolean audioRequested;
+    private boolean subtitlesRequested;
     private boolean maximiseRequested;
     private Integer displayId;
     private File videoFile;
@@ -65,6 +66,10 @@ public class CommandLineController {
         return audioRequested;
     }
 
+    public boolean isSubtitlesRequested() {
+        return subtitlesRequested;
+    }
+
     public boolean isMaximiseRequested() {
         return maximiseRequested;
     }
@@ -77,6 +82,7 @@ public class CommandLineController {
         switch (option) {
             case "-h", "--help" -> helpRequested = true;
             case "-a", "--audio" -> audioRequested = true;
+            case "-S", "--subtitle-frames" -> subtitlesRequested = true;
             case "-x", "--maximise" -> maximiseRequested = true;
             case "-1", "--monitor-1" -> setDisplayId(1);
             case "-2", "--monitor-2" -> setDisplayId(2);
@@ -147,11 +153,13 @@ public class CommandLineController {
         System.out.println("  -2, --monitor-2    Open the player on display 2");
         System.out.println();
         System.out.println("Frame processors:");
+        System.out.println("  -S, --subtitle-frames  Add speech-to-text subtitles to frames");
         for (FrameProcessorOption option : FrameProcessorOption.values()) {
             System.out.println(option.helpLine());
         }
         System.out.println();
         System.out.println("Frame processors are applied in command-line order and may be repeated.");
+        System.out.println("Subtitles are an overlay above all frame processors; -S enables them initially.");
         System.out.println("Example: -nssnfwyvdjmbp numbers, scratches twice, numbers again, flickers,");
         System.out.println("converts, warms, vignettes, dusts, jitters, mottles, bleeds, then peppers.");
     }

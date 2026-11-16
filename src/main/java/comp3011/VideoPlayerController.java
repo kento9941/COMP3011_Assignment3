@@ -30,13 +30,19 @@ import javafx.scene.input.KeyEvent;
 public class VideoPlayerController {
     private final VideoPlayerModel model;
     private final VideoPlayerView view;
+    private boolean subtitlesEnabled;
+    private SubtitleTrack subtitleTrack = new SubtitleTrack(List.of());
+    private boolean videoFrameVisible;
+    private long displayedTimestampUs;
     private final BiConsumer<Integer, Integer> videoSizeChangedHandler;
 
     public VideoPlayerController(
     		boolean audioEnabled,
+            boolean subtitlesEnabled,
             Supplier<List<FrameProcessor>> frameProcessorFactory,
             BiConsumer<Integer, Integer> videoSizeChangedHandler) {
         this.view = new VideoPlayerView();
+        this.subtitlesEnabled = subtitlesEnabled;
         this.videoSizeChangedHandler = videoSizeChangedHandler;
         model = new VideoPlayerModel(
                 audioEnabled,
@@ -54,6 +60,8 @@ public class VideoPlayerController {
         view.getStopButton().setOnAction(_ -> stopAndExit());
         view.getAudioButton().setOnAction(_ -> toggleAudioOutput());
         view.showAudioEnabled(model.isAudioOutputEnabled());
+        view.getSubtitleButton().setOnAction(_ -> toggleSubtitles());
+        view.showSubtitlesEnabled(subtitlesEnabled);
     }
 
     public void installKeyboardShortcuts(Scene scene) {
@@ -76,6 +84,9 @@ public class VideoPlayerController {
             } else if (event.getCode() == KeyCode.A) {
                 toggleAudioOutput();
                 event.consume();
+            } else if (event.getCode() == KeyCode.S) {
+                toggleSubtitles();
+                event.consume();
             }
         });
     }
@@ -85,6 +96,9 @@ public class VideoPlayerController {
     }
 
     public void play(File file) {
+        subtitleTrack = new SubtitleTrack(List.of());
+        videoFrameVisible = false;
+        updateSubtitle();
         view.setPlaybackControlsDisabled(false);
         model.play(file);
     }
@@ -113,6 +127,23 @@ public class VideoPlayerController {
         model.toggleAudioOutput();
     }
 
+    private void toggleSubtitles() {
+        subtitlesEnabled = !subtitlesEnabled;
+        view.showSubtitlesEnabled(subtitlesEnabled);
+        updateSubtitle();
+    }
+
+    /** Install transcription results on the JavaFX thread, including during pause. */
+    public void setSubtitleTrack(SubtitleTrack track) {
+        subtitleTrack = java.util.Objects.requireNonNull(track);
+        updateSubtitle();
+    }
+
+    private void updateSubtitle() {
+        view.setSubtitleText(subtitlesEnabled && videoFrameVisible
+                ? subtitleTrack.textAt(displayedTimestampUs) : "");
+    }
+
     private void stopAndExit() {
         model.stopPlayback();
         javafx.application.Platform.exit();
@@ -124,6 +155,9 @@ public class VideoPlayerController {
 
     private void onFrameReady(Image image) {
         view.setImage(image);
+        videoFrameVisible = image != null;
+        displayedTimestampUs = model.getCurrentTimestampUs();
+        updateSubtitle();
     }
 
     private void onStatusChanged(String status) {
@@ -131,6 +165,10 @@ public class VideoPlayerController {
     }
 
     private void onPlaybackStateChanged(boolean playing, boolean paused) {
+        if (!playing) {
+            videoFrameVisible = false;
+        }
+        updateSubtitle();
         if (playing && !paused) {
             view.showPauseAction();
         } else {
