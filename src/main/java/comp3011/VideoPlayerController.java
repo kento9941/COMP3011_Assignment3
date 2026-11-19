@@ -14,6 +14,7 @@ import java.io.File;
 import java.util.function.BiConsumer;
 import java.util.List;
 import java.util.function.Supplier;
+import javafx.concurrent.Task;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
@@ -32,6 +33,9 @@ public class VideoPlayerController {
     private final VideoPlayerView view;
     private boolean subtitlesEnabled;
     private SubtitleTrack subtitleTrack = new SubtitleTrack(List.of());
+    private File subtitleMedia;
+    private Task<SubtitleTrack> subtitleLoad;
+    private boolean subtitleTrackLoaded;
     private boolean videoFrameVisible;
     private long displayedTimestampUs;
     private final BiConsumer<Integer, Integer> videoSizeChangedHandler;
@@ -96,14 +100,20 @@ public class VideoPlayerController {
     }
 
     public void play(File file) {
+        cancelSubtitleLoad();
+        subtitleMedia = file;
+        subtitleTrackLoaded = false;
         subtitleTrack = new SubtitleTrack(List.of());
         videoFrameVisible = false;
         updateSubtitle();
         view.setPlaybackControlsDisabled(false);
         model.play(file);
+        loadSubtitlesIfNeeded();
     }
 
     public void shutdown() {
+        cancelSubtitleLoad();
+        subtitleMedia = null;
         model.shutdown();
     }
 
@@ -131,11 +141,50 @@ public class VideoPlayerController {
         subtitlesEnabled = !subtitlesEnabled;
         view.showSubtitlesEnabled(subtitlesEnabled);
         updateSubtitle();
+        loadSubtitlesIfNeeded();
+    }
+
+    private void loadSubtitlesIfNeeded() {
+        if (!subtitlesEnabled || subtitleMedia == null || subtitleTrackLoaded || subtitleLoad != null) {
+            return;
+        }
+        File media = subtitleMedia;
+        Task<SubtitleTrack> task = new Task<>() {
+            @Override
+            protected SubtitleTrack call() throws Exception {
+                try (var client = new SubtitleClient()) {
+                    return client.load(media);
+                }
+            }
+        };
+        subtitleLoad = task;
+        task.setOnSucceeded(_ -> {
+            if (subtitleLoad == task) {
+                subtitleLoad = null;
+                setSubtitleTrack(task.getValue());
+            }
+        });
+        task.setOnFailed(_ -> {
+            if (subtitleLoad == task) {
+                subtitleLoad = null;
+                System.err.println("Could not load subtitles: " + task.getException().getMessage());
+            }
+        });
+        Thread.startVirtualThread(task);
+    }
+
+    private void cancelSubtitleLoad() {
+        if (subtitleLoad != null) {
+            subtitleLoad.cancel();
+            subtitleLoad = null;
+        }
     }
 
     /** Install transcription results on the JavaFX thread, including during pause. */
     public void setSubtitleTrack(SubtitleTrack track) {
+        cancelSubtitleLoad();
         subtitleTrack = java.util.Objects.requireNonNull(track);
+        subtitleTrackLoaded = true;
         updateSubtitle();
     }
 
