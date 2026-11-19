@@ -49,6 +49,7 @@ public class VideoPlayerApp extends Application {
 
         controller = new VideoPlayerController(
                 commandLineController.isAudioRequested(),
+                commandLineController.isSubtitlesRequested(),
                 commandLineController::createFrameProcessors,
                 this::setVideoSize);
 

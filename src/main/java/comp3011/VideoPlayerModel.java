@@ -197,6 +197,11 @@ public class VideoPlayerModel {
         return audioOutputEnabled;
     }
 
+    /** Position of the displayed video, read on the JavaFX thread. */
+    public long getCurrentTimestampUs() {
+        return currentTimestampUs;
+    }
+
     public void stopPlayback() {
         closePlaybackResources();
         currentTimestampUs = 0;
